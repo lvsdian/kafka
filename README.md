@@ -1,8 +1,43 @@
 
+- [概述](#概述)
+- [消息队列](#消息队列)
+  - [应用场景](#应用场景)
+  - [好处](#好处)
+  - [消费模式](#消费模式)
+    - [点对点模式（一对一，消费者主动拉取数据，消息收到后消息清除）](#点对点模式一对一消费者主动拉取数据消息收到后消息清除)
+    - [发布/订阅模式（一对多，消费者消费数据之后不会清除消息）](#发布订阅模式一对多消费者消费数据之后不会清除消息)
+- [kafka基本架构](#kafka基本架构)
+  - [入门\_安装\_启动_关闭](#入门_安装_启动_关闭)
+- [Kafka架构深入](#kafka架构深入)
+  - [工作流程](#工作流程)
+  - [文件存储](#文件存储)
+- [生产者](#生产者)
+  - [分区策略](#分区策略)
+  - [数据可靠性保证](#数据可靠性保证)
+  - [Exactly Once （精准一致性）语义](#exactly-once-精准一致性语义)
+- [消费者](#消费者)
+  - [消费方式](#消费方式)
+  - [分区分配策略](#分区分配策略)
+    - [RoundRobin](#roundrobin)
+    - [Range](#range)
+    - [Sticky](#sticky)
+  - [offset的维护](#offset的维护)
+  - [消费者组案例](#消费者组案例)
+- [高效数据读写](#高效数据读写)
+  - [顺序写磁盘](#顺序写磁盘)
+  - [零拷贝技术](#零拷贝技术)
+- [Zookeeper 在 Kafka 中的作用](#zookeeper-在-kafka-中的作用)
+- [kafka事务](#kafka事务)
+  - [Producer事务](#producer事务)
+  - [Consumer事务](#consumer事务)
+- [Kafka API](#kafka-api)
+  - [Producer API](#producer-api)
+    - [消息发送流程](#消息发送流程)
+  - [Customer API](#customer-api)
+  - [Interceptor](#interceptor)
+- [Kafka监控](#kafka监控)
+- [常见问题](#常见问题)
 
-
-
-[toc]
 
 ### 概述
 
@@ -12,7 +47,7 @@
 
 #### 应用场景
 
-![](C:\Users\lvshuidian\Desktop\kafka\img\01.png)
+![](img/01.png)
 
 #### 好处
 
@@ -42,7 +77,7 @@
 
 - 消息生产者生产消息发送到Queue中，然后消息消费者从Queue中取出并且消费消息。 消息被消费以后，queue 中不再有存储，所以消息消费者不可能消费到已经被消费的消息。 Queue 支持存在多个消费者，但是对一个消息而言，只会有一个消费者可以消费。
 
-  ![](C:\Users\lvshuidian\Desktop\kafka\img\02.png)
+  ![](img/02.png)
 
 
 
@@ -50,13 +85,13 @@
 
 - 消息生产者（发布）将消息发布到 topic 中，同时有多个消息消费者（订阅）消费该消 息。和点对点方式不同，发布到 topic 的消息会被所有订阅者消费。
 
-  ![](C:\Users\lvshuidian\Desktop\kafka\img\03.png)
+  ![](img/03.png)
 
 
 
 ### kafka基本架构
 
-![](C:\Users\lvshuidian\Desktop\kafka\img\04.png)
+![](img/04.png)
 
 
 
@@ -268,7 +303,7 @@
 
 #### 工作流程
 
-![](C:\Users\lvshuidian\Desktop\kafka\img\05.png)
+![](img/05.png)
 
 - 如上图，一个topic分了三个分区，每个分区两个副本(leader + follower一共两个，不是两个follower)，同一个分区的leader和follower不在同一台机器上(在同一台机器上就没意义了)，follower会同步leader上的数据。
 - 生产者往分区发消息时会记录偏移量(offset)，不同分区间的偏移量互不影响，消费者找leader消费消息时会记录消息的offset
@@ -279,7 +314,7 @@
 
 #### 文件存储
 
-![](C:\Users\lvshuidian\Desktop\kafka\img\06.png)
+![](img/06.png)
 
 - 由于生产者生产的消息会不断追加到 log 文件末尾，为防止 log 文件过大导致数据定位效率低下，Kafka 采取了**分片和索引机制**，将每个 partition 分为多个 segment。每个 segment 对应两个文件——“.index”文件和“.log”文件。这些文件位于一个文件夹下，该文件夹的命名 规则为：topic 名称+分区序号。例如，first 这个 topic 有三个分区，则其对应的文件夹为 first-0,first-1,first-2。
 
@@ -294,7 +329,7 @@
 
 - index 和 log 文件以当前 segment 的第一条消息的 offset 命名。下图为 index 文件和 log 文件的结构示意图。
 
-  ![](C:\Users\lvshuidian\Desktop\kafka\img\07.png)
+  ![](img/07.png)
   - **“.index”文件存储大量的索引信息，“.log”文件存储大量的数据**，索引文件中的元数据指向对应数据文件中 message 的物理偏移地址。
   - 根据文件名，二分查找到offset所在的index文件，index文件中每条数据大小都一样，这样就可以快速定位到要找的offset，找到offset后，根据index记录的message大小，物理偏移地址等信息，就可以快速定位到数据文件(log)中的具体数据。比直接扫描数据文件(log文件)快得多
 
@@ -309,7 +344,7 @@
 
 - 分区的原则
 
-  ![](C:\Users\lvshuidian\Desktop\kafka\img\08.png)
+  ![](img/08.png)
 
   1. 指明 partition 的情况下，直接将指明的值直接作为 partiton 值；
   2. 没有指明 partition 值但有 key 的情况下，将 key 的 hash 值与 topic 的 partition 数进行取余得到 partition 值；
@@ -319,7 +354,7 @@
 
 - 为保证 producer 发送的数据，能可靠的发送到指定的 topic，topic 的每个 partition 收到 producer 发送的数据后，都需要向 producer 发送 ack（acknowledgement 确认收到），如果 producer 收到 ack，就会进行下一轮的发送，否则重新发送数据。
 
-  ![](C:\Users\lvshuidian\Desktop\kafka\img\09.png)
+  ![](img/09.png)
 
 | 序号 | 方案                          | 优点                                                       | 缺点                                                        |
 | ---- | ----------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
@@ -352,7 +387,7 @@
 
   - 为此，kafka引入两个概念：**LEO**(Log End Offset)：**指的是每个副本最大的 offset**；**HW**(High Watermark，高水位)，**指的是所有副本中最小的LEO**，消费者能见到的最大的 offset，ISR 队列中最小的 LEO。
 
-    ![](C:\Users\lvshuidian\Desktop\kafka\img\10.png)
+    ![](img/10.png)
 
 - follower和leader故障
   - **follower 故障**：follower 发生故障后会被临时踢出 ISR，待该 follower 恢复后， follower 会读取本地磁盘记录的上次的 HW，并将 log 文件高于 HW 的部分截取掉，从 HW 开始向 leader 进行同步。等该 follower 的 LEO 大于等于该 Partition 的 HW，即 follower 追上 leader 之后，就可以重新加入 ISR 了。
@@ -388,7 +423,7 @@
 
   - 首先将所有的partition和consumer按照字典序进行排序，所谓的字典序，就是按照其名称的字符串顺序，那么上面的六个分区和三个consumer排序之后分别为：
 
-    ![](C:\Users\lvshuidian\Desktop\kafka\img\11.jpg)
+    ![](img/11.jpg)
 
   - 然后依次以按顺序轮询的方式将这六个分区分配给三个consumer，如果当前consumer没有订阅当前分区所在的topic，则轮询的判断下一个consumer：
 
@@ -408,7 +443,7 @@
 
   - 按照上述的步骤将所有的分区都分配完毕之后，最终分区的订阅情况如下：
 
-    ![](C:\Users\lvshuidian\Desktop\kafka\img\12.jpg)
+    ![](img/12.jpg)
 
 - 从上面的步骤分析可以看出，轮询的策略就是简单的将所有的partition和consumer按照字典序进行排序之后，然后依次将partition分配给各个consumer，如果当前的consumer没有订阅当前的partition，那么就会轮询下一个consumer，直至最终将所有的分区都分配完毕。但是从上面的分配结果可以看出，轮询的方式会导致每个consumer所承载的分区数量不一致，从而导致各个consumer压力不均一。
 
@@ -423,7 +458,7 @@
   - 同理，按照上面的步骤依次进行后面的topic的分配。
   - 最终上面六个分区的分配情况如下：
 
-  ​		![](C:\Users\lvshuidian\Desktop\kafka\img\13.png)
+  ​		![](img/13.png)
 
 - 可以看到，如果按照`Range`分区方式进行分配，其本质上是依次遍历每个topic，然后将这些topic的分区按照其所订阅的consumer数量进行平均的范围分配。这种方式从计算原理上就会导致排序在前面的consumer分配到更多的分区，从而导致各个consumer的压力不均衡。
 
@@ -442,11 +477,11 @@
 
     - 首先将所有的分区进行排序，排序方式为：首先按照当前分区所分配的consumer数量从低到高进行排序，如果consumer数量相同，则按照分区的字典序进行排序。这里六个分区由于所在的topic的订阅情况各不相同，因而其排序结果如下：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\14.jpg)
+      ![](img/14.jpg)
 
     - 然后将所有的consumer进行排序，其排序方式为：首先按照当前consumer已经分配的分区数量由小到大排序，如果两个consumer分配的分区数量相同，则会按照其名称的字典序进行排序。由于初始时，这三个consumer都没有分配任何分区，因而其排序结果即为其按照字典序进行排序的结果：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\15.png)
+      ![](img/15.png)
 
     - 然后将各个分区依次遍历分配给各个consumer，首先需要注意的是，这里的遍历并不是C0分配完了再分配给C1，而是每次分配分区的时候都整个的对所有的consumer从头开始遍历分配，如果当前consumer没有订阅当前分区，则会遍历下一个consumer。然后需要注意的是，在整个分配的过程中，各个consumer所分配的分区数是动态变化的，而这种变化是会体现在各个consumer的排序上的，比如初始时C0是排在第一个的，此时如果分配了一个分区给C0，那么C0就会排到最后，因为其拥有的分区数是最多的。上面的六个分区整体的分配流程如下：
 
@@ -456,25 +491,25 @@
 
     - 接着将t2-0尝试分配给C2，由于C2订阅了t2，因而分配成功，此时由于C2分配的分区数发生变化，各个consumer变更后的排序结果为：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\16.png)
+      ![](img/16.png)
 
     - 接下来的t2-1和t2-2，由于也只有C2订阅了t2，因而其最终还是会分配给C2，最终在t2-0、t2-1和t2-2分配完之后，各个consumer的排序以及其分区分配情况如下：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\17.png)
+      ![](img/17.png)
 
     - 接着继续分配t1-0，首先尝试将其分配给C0，由于C0没有订阅t1，因而分配不成功，继续轮询下一个consumer；
 
     - 然后尝试将t1-0分配给C1，由于C1订阅了t1，因而分配成功，此时各个consumer以及其分配的分区情况如下：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\18.png)
+      ![](img/18.png)
 
     - 同理，接下来会分配t1-1，虽然C1和C2都订阅了t1，但是由于C1排在C2前面，因而该分区会分配给C1，即：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\19.png)
+      ![](img/19.png)
 
     - 最后，尝试将t0-0分配给C0，由于C0订阅了t0，因而分配成功，最终的分配结果为：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\20.png)
+      ![](img/20.png)
 
   - 上面的分配过程中，需要始终注意的是，虽然示例中的consumer顺序始终没有变化，但这是由于各个分区分配之后正好每个consumer所分配的分区数量的排序结果与初始状态一致。这里读者也可以比较一下这种分配方式与前面讲解的`Round Robin`进行对比，可以很明显的发现，`Sticky`重分配策略分配得更加均匀一些。
 
@@ -482,31 +517,31 @@
 
   - 由于前一个示例中最终的分区分配方式模拟宕机的情形比较简单，因而我们使用另一种订阅策略。这里我们的示例的consumer有三个：C0、C1和C2，topic有四个：t0、t1、t2和t3，每个topic都有两个分区，那么总的分区有：t0-0、t0-1、t1-0、t1-1、t2-0、t2-1、t3-0和t3-1。这里的订阅情况为三个consumer订阅所有的主题，那么如果按照`Sticky`的分区分配策略，初始状态时，分配情况如下，可以按照前一示例讲解的方式进行推算：
 
-    ![](C:\Users\lvshuidian\Desktop\kafka\img\21.png)
+    ![](img/21.png)
 
   - 这里我们假设在消费的过程中，C1发生了宕机，此时就会发生再平衡，而根据`Sticky`策略，其再分配步骤如下：
 
     - 首先会将宕机之后未分配的分区进行排序，排序方式为：首先按照分区所拥有的consumer数量从低到高进行排序，如果consumer数量相同，则按照分区的字典序进行排序。这里需要注意的是，由于只有C1宕机，因而未分配的分区为：t0-1、t2-0和t3-1，排序之后的结果为：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\22.png)
+      ![](img/22.png)
 
     - 然后将所有的consumer进行排序，排序方式为：首先将consumer按照其所拥有的consumer数量从小到大排序，如果数量相同，则按照consumer名称的字典序进行排序，排序结果如下：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\23.png)
+      ![](img/23.png)
 
     - 接着依次遍历各个分区，将其分配给各个consumer，需要注意的是，在分配的过程中，consumer所分配的分区数量是在变化的，而这种变化是会反应在consumer的排序上的：
 
     - 首先尝试将t0-1分配给C2，由于C2订阅了t0，因而可以分配成功，此时consumer排序和分区分配情况如下，需要注意的是，虽然分配之后，C2和C0的分区数量相同，但是由于按照字典序，C0在C2前面，因而排序情况还是会发生变化：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\24.png)
+      ![](img/24.png)
 
     - 然后尝试将t2-0分配给C0，由于C0订阅了t2，因而分配可以成功，此时consumer排序和分区分配情况如下：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\25.png)
+      ![](img/25.png)
 
     - 最后尝试分配t3-1给C2，由于C2订阅了t3，因而分配可以成功，此时consumer排序与分区分配情况如下：
 
-      ![](C:\Users\lvshuidian\Desktop\kafka\img\26.png)
+      ![](img/26.png)
 
   - 在上面的分区分配过程中，我们可以看到，由于分区的不断分配，各个consumer所拥有的分区数量也在不断变化，因而其排序情况也在变化，但是最终可以看到，各个分区是均匀的分配到各个consumer的，并且还保证了当前consumer已经消费的分区是不会分配到其他的consumer上的。
 
@@ -516,7 +551,7 @@
 
 - topic + partition + consumer group（不是consumer，是consumer group）唯一确定一个offset
 
-  ![](C:\Users\lvshuidian\Desktop\kafka\img\27.png)
+  ![](img/27.png)
 
 - **Kafka 0.9 版本之前， consumer 默认将 offset 保存在 Zookeeper 中，从 0.9 版本开始，consumer 默认将 offset 保存在 Kafka 一个内置的 topic 中，该 topic 为`__consumer_offsets`**。
 
@@ -598,7 +633,7 @@
 
 - NIC network interface controller 网络接口控制器
 
-​	![](C:\Users\lvshuidian\Desktop\kafka\img\28.png)
+​	![](img/28.png)
 
 ### Zookeeper 在 Kafka 中的作用
 
@@ -608,7 +643,7 @@
 
 - partition 的 leader 选举过程：
 
-  ![](C:\Users\lvshuidian\Desktop\kafka\img\29.png)
+  ![](img/29.png)
 
 ### kafka事务
 
@@ -622,4 +657,338 @@
 #### Consumer事务
 
 - 上述事务机制主要是从 Producer 方面考虑，对于 Consumer 而言，事务的保证就会相对较弱，尤其是无法保证 Commit的信息被精确消费。这是由于 Consumer 可以通过 offset 访问任意信息，而且不同的 Segment File 生命周期不同，同一事务的消息可能会出现重启后被 删除的情况。
+
+### Kafka API
+
+#### Producer API
+
+##### 消息发送流程
+
+- Kafka 的 Producer 发送消息采用的是**异步发送**的方式。在消息发送的过程中，涉及到了**两个线程——main 线程和 Sender 线程**，以及一个**线程共享变量——RecordAccumulator**。 main 线程将消息发送给 RecordAccumulator，Sender 线程不断从 RecordAccumulator 中拉取消息发送到 Kafka broker。
+
+  ![](img/30.png)
+  - 生产者通过`send()`发送数据，依次经过拦截器、序列化器、分区器到达共享变量`RecordAccumulator`，再由`Sender`线程将消息从`RecordAccumulator`发送到kafka
+  - 相关参数
+    - `batch.size`：只有数据积累到`batch.size`之后，`sender`才会发送数据。 
+    - `linger.ms`：如果数据迟迟未达到`batch.size`，`sender`等待`linger.time`之后就会发送数据。
+
+- [异步发送]()
+- [同步发送]()
+
+#### Customer API
+
+- Consumer消费数据的可靠性是很容易保证的，因为数据在Kafka中是持久化的，故不用担心数据丢失问题。
+- 由于consumer在消费过程中可能会出现断电宕机等故障，consumer恢复后，需要从故障前的位置的继续消费，所以consumer需要实时记录自己消费到了哪个offset，以便故障恢复后继续消费。所以offset的维护是 Consumer消费数据是必须考虑的问题。
+- `org.apache.kafka.clients.consumer.ConsumerConfig#AUTO_OFFSET_RESET_CONFIG`可用来重置offset
+- [自动提交offset]()
+- 手动提交
+  - 虽然自动提交 offset 十分简介便利，但由于其是基于时间提交的，开发人员难以把握 offset 提交的时机。因此 Kafka 还提供了手动提交 offset 的 API。
+  - 手动提交 offset 的方法有两种：分别是**commitSync（同步提交）**和**commitAsync（异步提交）**。两者的相同点是，都会将**本次 poll 的一批数据最高的偏移量提交**；不同点是， commitSync 阻塞当前线程，一直到提交成功，并且会自动失败重试（由不可控因素导致， 也会出现提交失败）；而 commitAsync 则没有失败重试机制，故有可能提交失败。
+  - [同步提交]()
+  - [异步提交]()
+  - 无论是同步提交还是异步提交offset，都有可能会造成数据的漏消费或者重复消费。先提交offset后消费，有可能造成数据的漏消费；而先消费后提交offset，有可能会造成数据 的重复消费。
+- Kafka 0.9版本之前，offset存储在zookeeper，0.9 版本及之后，默认将offset存储在Kafka的一个内置的 topic 中。除此之外，Kafka 还可以选择自定义存储 offset。offset 的维护是相当繁琐的，因为需要考虑到消费者的Rebalace。当有新的消费者加入消费者组、已有的消费者退出消费者组或者所订阅的主题的分区发生变化，就会触发到分区的重新分配，重新分配的过程叫做 Rebalance。消费者发生Rebalance之后，每个消费者消费的分区就会发生变化。因此消费者要首先获取到自己被重新分配到的分区，并且定位到每个分区最近提交的 offset 位置继续消费。自定义存储 offset可借助`ConsumerRebalanceListener`完成。
+
+#### Interceptor
+
+- Producer拦截器(interceptor)是在 Kafka 0.10 版本被引入的，主要用于实现 clients 端的定制化控制逻辑。
+
+- 对于producer而言，interceptor使得用户在消息发送前以及producer回调逻辑前有机会对消息做一些定制化需求，比如修改消息等。同时，producer 允许用户指定多个interceptor按序作用于同一条消息从而形成一个拦截链(interceptor chain)。Intercetpor 的实现接口是 `org.apache.kafka.clients.producer.ProducerInterceptor`，其定义的方法包括：
+
+  - `configure(configs)`
+
+    获取配置信息和初始化数据时调用。
+
+  - `onSend(ProducerRecord)`
+
+    该方法封装进`KafkaProducer.send()`方法中，即它运行在用户主线程中。Producer 确保在消息被序列化以及计算分区前调用该方法。可以在该方法中对消息做任何操作，但最好保证不要修改消息所属的 topic 和分区，否则会影响目标分区的计算。
+
+  - `onAcknowledgement(RecordMetadata, Exception)`
+
+    该方法会在消息从`RecordAccumulator`成功发送到`Kafka Broker`之后，或者在发送过程中失败时调用。并且通常都是在 producer 回调逻辑触发之前。`onAcknowledgement`运行在 producer 的 IO 线程中，因此不要在该方法中放入很重的逻辑，否则会拖慢 producer 的消息发送效率。
+
+  - `close`
+
+    关闭 interceptor，主要用于执行一些资源清理工作，如前所述，interceptor 可能被运行在多个线程中，因此在具体实现时用户需要自行确保线程安全。另外倘若指定了多个 interceptor，则 producer 将按照指定顺序调用它们，并仅仅是捕获每个 interceptor 可能抛出的异常记录到错误日志中而非在向上传递。这在使用过程中要特别留意。
+
+- [拦截器案例]()
+
+  - 实现一个简单的双 interceptor 组成的拦截链。第一个 interceptor 会在消息发送前将时间 戳信息加到消息 value 的最前部；第二个 interceptor 会在消息发送后更新成功发送消息数或 失败发送消息数。
+
+    ![](img/31.png)
+
+### Kafka监控
+
+- Kafka Eagle是开源可视化和管理软件，提供了将kafka集群数据转换为可视化图形图表的工具。
+
+- [kafka-eagle](https://www.kafka-eagle.org/)
+
+- 使用步骤
+
+  1. 修改kafka 启动命令（集群中所以节点都要修改），修改 kafka-server-start.sh 命令中
+
+     ```shell
+     if [ "x$KAFKA_HEAP_OPTS" = "x" ]; then
+         export KAFKA_HEAP_OPTS="-Xmx1G -Xms1G"
+     fi
+     ```
+
+     为
+
+     ```shell
+     if [ "x$KAFKA_HEAP_OPTS" = "x" ]; then
+         export KAFKA_HEAP_OPTS="-server -Xms2G -Xmx2G -XX:PermSize=128m
+     -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:ParallelGCThreads=8 -XX:ConcGCThreads=5 -XX:InitiatingHeapOccupancyPercent=70"
+         export JMX_PORT="9999"
+         #export KAFKA_HEAP_OPTS="-Xmx1G -Xms1G"
+     fi
+     ```
+
+     ![](img/32.png)
+
+  2. 解压
+
+     解压`kafka-eagle-bin-1.3.7.tar.gz`，再解压`kafka-eagle-web-1.3.7-bin.tar.gz`，将解压后的路径配置到环境变量中。
+
+     ![](img/33.png)
+
+  3. 修改bin目录中启动脚本权限
+
+     修改权限：`chmod 777 ke.sh `
+
+  4. 修改配置文件
+
+     修改`conf\system-config.properties`文件内容，如下：
+
+     ```sh
+     ######################################
+     # multi zookeeper&kafka cluster list
+     # eagle可以监控多套kafka集群，如下方式配置zk地址即可
+     ######################################
+     kafka.eagle.zk.cluster.alias=cluster1,cluster2
+     cluster1.zk.list=localhost:2181
+     cluster2.zk.list=ip:port
+     
+     ######################################
+     # zk client thread limit
+     ######################################
+     kafka.zk.limit.size=25
+     
+     ######################################
+     # kafka eagle webui port
+     ######################################
+     kafka.eagle.webui.port=8048
+     
+     ######################################
+     # kafka offset storage
+     # 配置存放offset的位置，旧版本存在zk中，新版本存在kafka中
+     ######################################
+     cluster1.kafka.eagle.offset.storage=kafka
+     cluster2.kafka.eagle.offset.storage=zk
+     
+     ######################################
+     # enable kafka metrics
+     # 是否显示图标等
+     ######################################
+     kafka.eagle.metrics.charts=true
+     kafka.eagle.sql.fix.error=false
+     
+     ######################################
+     # kafka sql topic records max
+     ######################################
+     kafka.eagle.sql.topic.records.max=5000
+     
+     ######################################
+     # alarm email configure
+     # 异常是否发邮件通知
+     ######################################
+     kafka.eagle.mail.enable=false
+     kafka.eagle.mail.sa=alert_sa@163.com
+     kafka.eagle.mail.username=alert_sa@163.com
+     kafka.eagle.mail.password=mqslimczkdqabbbh
+     kafka.eagle.mail.server.host=smtp.163.com
+     kafka.eagle.mail.server.port=25
+     
+     ######################################
+     # alarm im configure
+     ######################################
+     #kafka.eagle.im.dingding.enable=true
+     #kafka.eagle.im.dingding.url=https://oapi.dingtalk.com/robot/send?access_token=
+     
+     #kafka.eagle.im.wechat.enable=true
+     #kafka.eagle.im.wechat.token=https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=xxx&corpsecret=xxx
+     #kafka.eagle.im.wechat.url=https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=
+     #kafka.eagle.im.wechat.touser=
+     #kafka.eagle.im.wechat.toparty=
+     #kafka.eagle.im.wechat.totag=
+     #kafka.eagle.im.wechat.agentid=
+     
+     ######################################
+     # delete kafka topic token
+     ######################################
+     kafka.eagle.topic.token=keadmin
+     
+     ######################################
+     # kafka sasl authenticate
+     ######################################
+     cluster1.kafka.eagle.sasl.enable=false
+     cluster1.kafka.eagle.sasl.protocol=SASL_PLAINTEXT
+     cluster1.kafka.eagle.sasl.mechanism=PLAIN
+     cluster1.kafka.eagle.sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="kafka-eagle";
+     
+     #cluster2.kafka.eagle.sasl.enable=false
+     #cluster2.kafka.eagle.sasl.protocol=SASL_PLAINTEXT
+     #cluster2.kafka.eagle.sasl.mechanism=PLAIN
+     #cluster2.kafka.eagle.sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="kafka-eagle";
+     
+     ######################################
+     # kafka jdbc driver address
+     ######################################
+     kafka.eagle.driver=com.mysql.jdbc.Driver
+     kafka.eagle.url=jdbc:mysql://localhost:3306/ke?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull
+     kafka.eagle.username=root
+     kafka.eagle.password=root
+     ```
+
+  5. 启动zk，kafka，启动kafka时需设置`JMX_PORT`：
+
+     `JMX_PORT=9999 bin/kafka-server-start.sh config/server.properties &`
+
+  6. 启动eagle并访问`bin/ke.sh start`
+
+     ![](img/35.png)
+
+  7. 效果
+
+     ![](img/34.png)
+
+
+### 常见问题
+
+1. Kafka 中的 ISR(InSyncRepli)、OSR(OutSyncRepli)、AR(AllRepli)代表什么
+
+   ISR：在`replica.lag.time.max.ms`参数指定的时间内从leader同步数据的follower
+
+   AR：所有的follower
+
+   OSR：AR - ISR
+
+2. Kafka中是怎么体现消息顺序性的？
+
+   每个分区内,每条消息都有offset,所以只能在同一分区内有序,但不同的分区无法做到消息顺序性
+
+3. “消费组中的消费者个数如果超过topic的分区，那么就会有消费者消费不到数据”这句话是否正确?
+
+   对的,超过分区数的消费者就不会再接收数据
+
+4. 有哪些情形会造成重复消费？或丢失信息？
+
+   先处理后提交offset,会造成重读消费
+   先提交offset后处理,会造成数据丢失
+
+5. Kafka 分区的目的？
+
+   对于kafka集群来说,分区可以做到负载均衡
+
+   对于消费者来说,可以提高并发度,提高读取效率
+
+6. Kafka 的高可靠性是怎么实现的？
+
+   ISR、ACK机制
+
+7. topic的分区数可不可以增加？如果可以怎么增加？如果不可以，那又是为什么？
+
+   `bin/kafka-topics.sh --zookeeper localhost:2181/kafka --alter --topic topic-config --partitions 3`
+
+8. topic的分区数可不可以减少？如果可以怎么减少？如果不可以，那又是为什么？
+
+   不可以,先有的分区数据难以处理
+
+9. 简述Kafka的日志目录结构？
+
+   每一个分区对应一个文件夹,命名为topic-0,topic-1,每个文件夹内有.index和.log文件
+
+10. Kafka的那些设计让它有如此高的性能？
+
+    kafka是分布式的消息队列
+
+    对log文件进行了segment,并对segment建立了索引
+
+    (对于单节点)使用了顺序读写,速度可以达到600M/s
+
+    引用了zero拷贝,在os系统就完成了读写操作
+
+11. kafka启动不起来的原因?
+
+    在关闭kafka时,先关了zookeeper,就会导致kafka下一次启动时,会报节点已存在的错误
+    只要把zookeeper中的zkdata/version-2的文件夹删除即可
+
+12. 聊一聊Kafka Controller的作用？
+
+    负责kafka集群的上下线工作,所有topic的副本分区分配和选举leader工作
+
+13. Kafka中有那些地方需要选举？这些地方的选举策略又有哪些？
+
+    在ISR中需要选举leader
+
+14. 失效副本是指什么？有那些应对措施？
+
+    失效副本为速率比leader相差大于10秒的follower
+    将失效的follower先提出ISR
+    等速率接近leader10秒内,再加进ISR
+
+15. Kafka消息是采用Pull模式，还是Push模式？
+
+    在producer阶段,向broker用Push模式
+    在consumer阶段,向broker用Pull模式
+    在Pull模式下,consumer可以根据自身速率选择如何拉取数据,避免了低速率的consumer发生崩溃的问题
+    但缺点是,consumer要时不时的去询问broker是否有新数据,容易发生死循环,内存溢出
+
+16. Kafka创建Topic时如何将分区放置到不同的Broker中？
+
+    首先副本数不能超过broker数
+    第一分区是随机从Broker中选择一个,然后其他分区相对于0号分区依次向后移
+    第一个分区是从nextReplicaShift决定的,而这个数也是随机产生的
+
+17. Kafka中的事务是怎么实现的?
+
+    kafka事务有两种
+    producer事务和consumer事务
+    producer事务是为了解决kafka跨分区跨会话问题
+    kafka不能跨分区跨会话的主要问题是每次启动的producer的PID都是系统随机给的
+    所以为了解决这个问题，我们就要手动给producer一个全局唯一的id,也就是transaction id 简称TID
+    我们将TID和PID进行绑定,在producer带着TID和PID第一次向broker注册时,broker就会记录TID,并生成一个新的组件__transaction_state用来保存TID的事务状态信息
+    当producer重启后,就会带着TID和新的PID向broker发起请求,当发现TID一致时
+    producer就会获取之前的PID,将覆盖掉新的PID,并获取上一次的事务状态信息,从而继续上次工作
+    consumer事务相对于producer事务就弱一点,需要先确保consumer的消费和提交位置为一致且具有事务功能,才能保证数据的完整,不然会造成数据的丢失或重复
+
+18. Kafka中的分区器、序列化器、拦截器是否了解？它们之间的处理顺序是什么？
+
+    拦截器>序列化器>分区器
+
+19. Kafka生产者客户端的整体结构是什么样子的？使用了几个线程来处理？分别是什么？
+
+    ![](img/30.png)
+
+    使用两个线程:
+    main线程和sender线程
+    main线程会依次经过拦截器,序列化器,分区器将数据发送到RecourdAccumlator(线程共享变量)
+    再由sender线程从RecourdAccumlator中拉取数据发送到kafka broker
+    相关参数：
+    batch.size：只有数据积累到batch.size之后，sender才会发送数据。
+    linger.ms：如果数据迟迟未达到batch.size，sender等待linger.time之后就会发送数据。
+
+20. 消费者提交消费位移时提交的是当前消费到的最新消息的offset还是offset+1？
+
+    `offset + 1`，生产者发送数据offset是从0开始的
+
+21. kafka有内部topic吗？有什么作用
+
+    有，存offset
+
+22. kafka消息数据积压，消费能力不足怎么处理
+
+    如果是kafka消费能力不足，可以考虑增加topic的分区数，并且同时提升消费者组消费者的数量，消费者数=分区数(两者缺一不可，因为如果消费者数多于分区数，那么多余的消费者消费不到数据)
+
+    如果是下游数据处理不及时，提供每批次拉取的数量，批次拉取数据过少(拉取数据 / 处理时间 < 生产速度)，也会造成数据积压  
 
